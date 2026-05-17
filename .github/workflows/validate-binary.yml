@@ -1,15 +1,9 @@
 name: Validate Binary
 
 on:
-  pull_request:
-    paths:
-      - 'packages/cli/package.json'
-      - 'packages/cli/pkg.js'
-      - 'packages/cli/pkg.config.mjs'
-      - 'packages/cli/scripts/build-binary.mjs'
-      - 'packages/vc-native/**'
-      - '.github/workflows/validate-binary.yml'
-      - '.github/workflows/release-binary.yml'
+  push:
+    tags:
+      - 'vercel@*'
   workflow_dispatch:
 
 concurrency:
