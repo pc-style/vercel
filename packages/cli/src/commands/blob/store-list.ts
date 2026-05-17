@@ -8,7 +8,7 @@ import { printError } from '../../util/error';
 import { parseArguments } from '../../util/get-args';
 import { getFlagsSpecification } from '../../util/get-flags-specification';
 import getScope from '../../util/get-scope';
-import { getLinkFromDir, getVercelDirectory } from '../../util/projects/link';
+import { getProjectLink } from '../../util/projects/link';
 import getProjectByIdOrName from '../../util/projects/get-project-by-id-or-name';
 import { ProjectNotFound } from '../../util/errors-ts';
 import { listStoresSubcommand } from './command';
@@ -86,7 +86,7 @@ export default async function listStores(
     let teamSlug: string | undefined;
     let linkedProject: { id: string; name: string } | undefined;
 
-    const dirLink = await getLinkFromDir(getVercelDirectory(client.cwd));
+    const dirLink = await getProjectLink(client, client.cwd);
     if (dirLink) {
       accountId = dirLink.orgId;
       const project = await getProjectByIdOrName(

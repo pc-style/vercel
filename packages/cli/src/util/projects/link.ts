@@ -56,6 +56,67 @@ const linkSchema = {
   },
 };
 
+const DEFAULT_PROJECT_LINK_NAME = 'default';
+
+type ProjectLinkFile = Partial<ProjectLink> & {
+  projects?: Record<string, ProjectLink>;
+  settings?: unknown;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isProjectLink(value: unknown): value is ProjectLink {
+  return (
+    isRecord(value) &&
+    typeof value.projectId === 'string' &&
+    value.projectId.length > 0 &&
+    typeof value.orgId === 'string' &&
+    value.orgId.length > 0
+  );
+}
+
+function getProjectLinkNameFromArgs(argv: string[]): string | undefined {
+  for (let i = 2; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--project') {
+      return argv[i + 1];
+    }
+    if (arg.startsWith('--project=')) {
+      return arg.slice('--project='.length);
+    }
+  }
+}
+
+function getProjectLinksFromFile(
+  link: ProjectLinkFile
+): Record<string, ProjectLink> {
+  const projects = isRecord(link.projects) ? link.projects : undefined;
+  if (projects) {
+    const projectLinks: Record<string, ProjectLink> = {};
+    for (const [name, project] of Object.entries(projects)) {
+      if (isProjectLink(project)) {
+        projectLinks[name] = project;
+      }
+    }
+    return projectLinks;
+  }
+  if (isProjectLink(link)) {
+    return { [DEFAULT_PROJECT_LINK_NAME]: link };
+  }
+  return {};
+}
+
+function getSelectedProjectLink(
+  link: ProjectLinkFile,
+  selectedProjectName?: string
+): ProjectLink | null {
+  const projects = getProjectLinksFromFile(link);
+  const selection = selectedProjectName ?? DEFAULT_PROJECT_LINK_NAME;
+  return projects[selection] ?? null;
+}
+
 /**
  * Returns the `<cwd>/.vercel` directory for the current project
  * with a fallback to <cwd>/.now` if it exists.
@@ -79,17 +140,27 @@ export function getVercelDirectory(cwd: string): string {
 export async function getProjectLink(
   client: Client,
   path: string,
+  projectLinkName?: string,
   projectName?: string
 ): Promise<ProjectLink | null> {
   // Prefer an explicit per-directory link (`.vercel/project.json`) over a
   // repository-level link (`.vercel/repo.json`). This prevents scenarios where
   // a freshly-created local link (e.g. after `vc link`) is ignored and the
   // user is re-prompted to select a repo-linked project again.
-  const dirLink = await getLinkFromDir(getVercelDirectory(path));
+  const selectedProjectLinkName =
+    projectLinkName ?? getProjectLinkNameFromArgs(client.argv);
+  const dirLink = await getLinkFromDir(
+    getVercelDirectory(path),
+    selectedProjectLinkName
+  );
   if (dirLink) {
     return dirLink;
   }
-  return await getProjectLinkFromRepoLink(client, path, projectName);
+  return await getProjectLinkFromRepoLink(
+    client,
+    path,
+    projectName ?? selectedProjectLinkName
+  );
 }
 
 async function getProjectLinkFromRepoLink(
@@ -162,35 +233,35 @@ async function getProjectLinkFromRepoLink(
 }
 
 export async function getLinkFromDir<T = ProjectLink>(
-  dir: string
+  dir: string,
+  projectName?: string
 ): Promise<T | null> {
   try {
     const json = await readFile(join(dir, VERCEL_DIR_PROJECT), 'utf8');
 
     const ajv = new AJV();
-    const link: T = JSON.parse(json);
+    const link = JSON.parse(json) as ProjectLinkFile;
+    const selectedLink = getSelectedProjectLink(link, projectName);
 
-    if (!ajv.validate(linkSchema, link)) {
-      const raw = link as Record<string, unknown>;
-      const projectId = raw.projectId;
-      const orgId = raw.orgId;
-      const hasPlainLinkIds =
-        typeof projectId === 'string' &&
-        projectId.length > 0 &&
-        typeof orgId === 'string' &&
-        orgId.length > 0;
-      if (!hasPlainLinkIds) {
-        // `vercel pull` with a repo-level link writes settings-only `project.json`
-        // (see writeProjectSettings). Treat as no per-directory link and fall
-        // back to `.vercel/repo.json` resolution.
-        return null;
+    if (!selectedLink) {
+      if (projectName && isRecord(link.projects)) {
+        throw new Error(
+          `Project "${projectName}" is not linked in ${join(
+            dir,
+            VERCEL_DIR_PROJECT
+          )}.`
+        );
       }
+      return null;
+    }
+
+    if (!ajv.validate(linkSchema, selectedLink)) {
       throw new Error(
         `Project Settings are invalid. To link your project again, remove the ${dir} directory.`
       );
     }
 
-    return link;
+    return selectedLink as T;
   } catch (err: unknown) {
     // link file does not exists, project is not linked
     if (
@@ -241,7 +312,8 @@ async function getOrgById(client: Client, orgId: string): Promise<Org | null> {
 async function hasProjectLink(
   client: Client,
   projectLink: ProjectLink,
-  path: string
+  path: string,
+  projectLinkName: string = DEFAULT_PROJECT_LINK_NAME
 ): Promise<boolean> {
   // "linked" via env vars?
   const VERCEL_ORG_ID = getPlatformEnv('ORG_ID');
@@ -274,7 +346,7 @@ async function hasProjectLink(
   }
 
   // if the project is already linked, we skip linking
-  const link = await getLinkFromDir(getVercelDirectory(path));
+  const link = await getLinkFromDir(getVercelDirectory(path), projectLinkName);
   if (
     link &&
     link.orgId === projectLink.orgId &&
@@ -289,7 +361,8 @@ async function hasProjectLink(
 export async function getLinkedProject(
   client: Client,
   path = client.cwd,
-  projectName?: string
+  projectName?: string,
+  projectLinkName?: string
 ): Promise<ProjectLinkResult> {
   path = await resolveProjectCwd(path);
 
@@ -311,7 +384,7 @@ export async function getLinkedProject(
   const link =
     VERCEL_ORG_ID && VERCEL_PROJECT_ID
       ? { orgId: VERCEL_ORG_ID, projectId: VERCEL_PROJECT_ID }
-      : await getProjectLink(client, path, projectName);
+      : await getProjectLink(client, path, projectLinkName, projectName);
 
   if (!link) {
     return { status: 'not_linked', org: null, project: null };
@@ -417,6 +490,54 @@ export async function writeReadme(path: string) {
   );
 }
 
+async function readProjectLinkFile(dir: string): Promise<ProjectLinkFile> {
+  try {
+    return JSON.parse(
+      await readFile(join(dir, VERCEL_DIR_PROJECT), 'utf8')
+    ) as ProjectLinkFile;
+  } catch (err: unknown) {
+    if (
+      isErrnoException(err) &&
+      err.code &&
+      ['ENOENT', 'ENOTDIR'].includes(err.code)
+    ) {
+      return {};
+    }
+
+    if (isError(err) && err.name === 'SyntaxError') {
+      return {};
+    }
+
+    throw err;
+  }
+}
+
+async function writeProjectLinkFile(
+  path: string,
+  projectLink: ProjectLink,
+  projectName: string,
+  projectLinkName: string
+) {
+  const dir = join(path, VERCEL_DIR);
+  const existingLink = await readProjectLinkFile(dir);
+  const projects = getProjectLinksFromFile(existingLink);
+  projects[projectLinkName] = {
+    orgId: projectLink.orgId,
+    projectId: projectLink.projectId,
+    projectName,
+  };
+
+  const nextLink: ProjectLinkFile = { projects };
+  if (typeof existingLink.settings !== 'undefined') {
+    nextLink.settings = existingLink.settings;
+  }
+
+  await writeFile(
+    join(dir, VERCEL_DIR_PROJECT),
+    JSON.stringify(nextLink, null, 2)
+  );
+}
+
 export async function linkFolderToProject(
   client: Client,
   path: string,
@@ -425,10 +546,11 @@ export async function linkFolderToProject(
   orgSlug: string,
   successEmoji: EmojiLabel = 'link',
   autoConfirm: boolean = false,
-  pullEnv: boolean = true
+  pullEnv: boolean = true,
+  projectLinkName: string = DEFAULT_PROJECT_LINK_NAME
 ) {
   // if the project is already linked, we skip linking
-  if (await hasProjectLink(client, projectLink, path)) {
+  if (await hasProjectLink(client, projectLink, path, projectLinkName)) {
     return;
   }
 
@@ -443,13 +565,7 @@ export async function linkFolderToProject(
     throw err;
   }
 
-  await writeFile(
-    join(path, VERCEL_DIR, VERCEL_DIR_PROJECT),
-    JSON.stringify({
-      ...projectLink,
-      projectName,
-    })
-  );
+  await writeProjectLinkFile(path, projectLink, projectName, projectLinkName);
 
   await writeReadme(path);
 

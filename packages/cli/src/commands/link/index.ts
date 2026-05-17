@@ -138,6 +138,7 @@ export default async function link(client: Client) {
       autoConfirm: yes,
       forceDelete: true,
       projectName: parsedArgs.flags['--project'],
+      projectLinkName: parsedArgs.flags['--name'],
       successEmoji: 'success',
       nonInteractive: linkNonInteractive,
       searchAcrossTeams: !explicitScopeProvided,

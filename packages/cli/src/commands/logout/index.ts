@@ -14,6 +14,7 @@ import { getFlagsSpecification } from '../../util/get-flags-specification';
 import output from '../../output-manager';
 import { LogoutTelemetryClient } from '../../util/telemetry/commands/logout';
 import { logout as future } from './future';
+import { removeActiveAuthAccount } from '../../util/auth-accounts';
 
 export default async function logout(client: Client): Promise<number> {
   const { authConfig, config } = client;
@@ -77,12 +78,11 @@ export default async function logout(client: Client): Promise<number> {
 
   delete config.currentTeam;
 
-  delete authConfig.token;
-  delete authConfig.userId;
+  const nextAuthConfig = removeActiveAuthAccount(authConfig);
 
   try {
     writeToConfigFile(config);
-    writeToAuthConfigFile(authConfig);
+    writeToAuthConfigFile(nextAuthConfig);
     output.debug('Configuration has been deleted');
   } catch (err: unknown) {
     output.debug(errorToString(err));

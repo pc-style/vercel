@@ -19,6 +19,8 @@ import {
 } from '../../util/oauth';
 import o from '../../output-manager';
 import type { LoginTelemetryClient } from '../../util/telemetry/commands/login';
+import getUser from '../../util/get-user';
+import { addAuthAccount } from '../../util/auth-accounts';
 
 export interface DeviceCodeTokens {
   access_token: string;
@@ -209,10 +211,22 @@ export async function login(
   // user is not currently authenticated on this machine
   const isInitialLogin = !client.authConfig.token;
 
+  const expiresAt = Math.floor(Date.now() / 1000) + tokens.expires_in;
+
   client.updateAuthConfig({
     token: tokens.access_token,
     userId: undefined,
-    expiresAt: Math.floor(Date.now() / 1000) + tokens.expires_in,
+    expiresAt,
+    refreshToken: tokens.refresh_token,
+  });
+
+  const user = await getUser(client);
+  const accountLabel = user.email;
+  client.authConfig = addAuthAccount(client.authConfig, accountLabel, {
+    token: tokens.access_token,
+    email: user.email,
+    userId: user.id,
+    expiresAt,
     refreshToken: tokens.refresh_token,
   });
 
