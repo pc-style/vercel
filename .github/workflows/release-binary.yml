@@ -76,6 +76,8 @@ jobs:
             custom_node_platform: win
             custom_node_arch: x64
     runs-on: ${{ matrix['runs-on'] }}
+    env:
+      HAS_APPLE_SIGNING_SECRETS: ${{ secrets.APPLE_CERT_DATA != '' && secrets.APPLE_CERT_PASSWORD != '' && secrets.APPLE_API_KEY != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -148,11 +150,11 @@ jobs:
           test -n "$out"
 
       - name: Install rcodesign
-        if: ${{ matrix.sign && secrets.APPLE_CERT_DATA != '' && secrets.APPLE_CERT_PASSWORD != '' && secrets.APPLE_API_KEY != '' }}
+        if: ${{ matrix.sign && env.HAS_APPLE_SIGNING_SECRETS == 'true' }}
         run: cargo install apple-codesign --locked
 
       - name: Write Apple signing certificate
-        if: ${{ matrix.sign && secrets.APPLE_CERT_DATA != '' && secrets.APPLE_CERT_PASSWORD != '' && secrets.APPLE_API_KEY != '' }}
+        if: ${{ matrix.sign && env.HAS_APPLE_SIGNING_SECRETS == 'true' }}
         shell: bash
         env:
           APPLE_CERT_DATA: ${{ secrets.APPLE_CERT_DATA }}
@@ -171,7 +173,7 @@ jobs:
           echo "APPLE_CERT_PATH=$APPLE_CERT_PATH" >> "$GITHUB_ENV"
 
       - name: Write Apple notarization API key
-        if: ${{ matrix.sign && secrets.APPLE_CERT_DATA != '' && secrets.APPLE_CERT_PASSWORD != '' && secrets.APPLE_API_KEY != '' }}
+        if: ${{ matrix.sign && env.HAS_APPLE_SIGNING_SECRETS == 'true' }}
         shell: bash
         env:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
@@ -190,7 +192,7 @@ jobs:
           echo "APPLE_API_KEY_PATH=$APPLE_API_KEY_PATH" >> "$GITHUB_ENV"
 
       - name: Sign binary
-        if: ${{ matrix.sign && secrets.APPLE_CERT_DATA != '' && secrets.APPLE_CERT_PASSWORD != '' && secrets.APPLE_API_KEY != '' }}
+        if: ${{ matrix.sign && env.HAS_APPLE_SIGNING_SECRETS == 'true' }}
         shell: bash
         working-directory: packages/cli
         env:
@@ -215,7 +217,7 @@ jobs:
             exit 1
           fi
       - name: Notarize binary
-        if: ${{ matrix.sign && secrets.APPLE_CERT_DATA != '' && secrets.APPLE_CERT_PASSWORD != '' && secrets.APPLE_API_KEY != '' }}
+        if: ${{ matrix.sign && env.HAS_APPLE_SIGNING_SECRETS == 'true' }}
         shell: bash
         working-directory: packages/cli
         run: |
