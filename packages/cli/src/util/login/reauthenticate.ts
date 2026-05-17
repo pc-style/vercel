@@ -3,6 +3,8 @@ import type { LoginResult, SAMLError } from './types';
 import type Client from '../client';
 import output from '../../output-manager';
 import { performDeviceCodeFlow } from '../../commands/login/future';
+import getUser from '../get-user';
+import { addAuthAccount } from '../auth-accounts';
 
 export default async function reauthenticate(
   client: Client,
@@ -59,10 +61,20 @@ export default async function reauthenticate(
     return 1;
   }
 
+  const expiresAt = Math.floor(Date.now() / 1000) + tokens.expires_in;
   client.updateAuthConfig({
     token: tokens.access_token,
     userId: undefined,
-    expiresAt: Math.floor(Date.now() / 1000) + tokens.expires_in,
+    expiresAt,
+    refreshToken: tokens.refresh_token,
+  });
+
+  const user = await getUser(client);
+  client.authConfig = addAuthAccount(client.authConfig, user.email, {
+    token: tokens.access_token,
+    email: user.email,
+    userId: user.id,
+    expiresAt,
     refreshToken: tokens.refresh_token,
   });
 

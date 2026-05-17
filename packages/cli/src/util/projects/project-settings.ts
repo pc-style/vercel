@@ -1,10 +1,20 @@
 import { join } from 'path';
-import { outputJSON, readFile } from 'fs-extra';
+import { ensureDir, outputJSON, readFile } from 'fs-extra';
+import { promisify } from 'util';
+import fs from 'fs';
 import type { VercelConfig } from '@vercel/client';
-import { VERCEL_DIR, VERCEL_DIR_PROJECT } from './link';
+import {
+  DEFAULT_PROJECT_LINK_NAME,
+  VERCEL_DIR,
+  VERCEL_DIR_PROJECT,
+  getProjectLinksFromFile,
+  readProjectLinkFile,
+} from './link';
 import type { PartialProjectSettings } from '../input/edit-project-settings';
 import type { Org, Project, ProjectLink } from '@vercel-internals/types';
 import { isErrnoException, isError } from '@vercel/error-utils';
+
+const writeFile = promisify(fs.writeFile);
 
 export type ProjectLinkAndSettings = Partial<ProjectLink> & {
   settings: {
@@ -40,24 +50,58 @@ export async function writeProjectSettings(
     analyticsId = project.analytics.id;
   }
 
+  const settings: ProjectLinkAndSettings['settings'] = {
+    createdAt: project.createdAt,
+    framework: project.framework,
+    devCommand: project.devCommand,
+    installCommand: project.installCommand,
+    buildCommand: project.buildCommand,
+    outputDirectory: project.outputDirectory,
+    rootDirectory: project.rootDirectory,
+    directoryListing: project.directoryListing,
+    nodeVersion: project.nodeVersion,
+    analyticsId,
+  };
+
+  // If `project.json` already uses the new `projects` map format (because the
+  // user ran `vc link --name <X>`), preserve and merge into it so we don't
+  // clobber named entries. Otherwise keep writing the legacy flat format for
+  // backwards compatibility with consumers (and existing on-disk fixtures).
+  const dir = join(cwd, VERCEL_DIR);
+  await ensureDir(dir);
+  const existingLink = await readProjectLinkFile(dir);
+  const usesProjectsMap =
+    existingLink.projects !== undefined &&
+    typeof existingLink.projects === 'object' &&
+    existingLink.projects !== null;
+
+  const path = join(dir, VERCEL_DIR_PROJECT);
+
+  if (usesProjectsMap) {
+    const existingProjects = getProjectLinksFromFile(existingLink);
+    if (!isRepoLinked) {
+      existingProjects[DEFAULT_PROJECT_LINK_NAME] = {
+        orgId: org.id,
+        projectId: project.id,
+        projectName: project.name,
+      };
+    }
+    const nextLink: {
+      projects: Record<string, ProjectLink>;
+      settings: typeof settings;
+    } = {
+      projects: existingProjects,
+      settings,
+    };
+    return await writeFile(path, JSON.stringify(nextLink, null, 2));
+  }
+
   const projectLinkAndSettings: ProjectLinkAndSettings = {
     projectId: isRepoLinked ? undefined : project.id,
     orgId: isRepoLinked ? undefined : org.id,
     projectName: isRepoLinked ? undefined : project.name,
-    settings: {
-      createdAt: project.createdAt,
-      framework: project.framework,
-      devCommand: project.devCommand,
-      installCommand: project.installCommand,
-      buildCommand: project.buildCommand,
-      outputDirectory: project.outputDirectory,
-      rootDirectory: project.rootDirectory,
-      directoryListing: project.directoryListing,
-      nodeVersion: project.nodeVersion,
-      analyticsId,
-    },
+    settings,
   };
-  const path = join(cwd, VERCEL_DIR, VERCEL_DIR_PROJECT);
   return await outputJSON(path, projectLinkAndSettings, {
     spaces: 2,
   });

@@ -51,6 +51,7 @@ import type { z } from 'zod';
 import output from '../output-manager';
 import { parseArguments } from './get-args';
 import { processTokenResponse, refreshTokenRequest } from './oauth';
+import { applyActiveAccount, syncActiveAuthAccount } from './auth-accounts';
 
 const isSAMLError = (v: any): v is SAMLError => {
   return v && v.saml;
@@ -146,7 +147,7 @@ export default class Client extends EventEmitter implements Stdio {
     this.agent = opts.agent;
     this.setArgv(opts.argv);
     this.apiUrl = opts.apiUrl;
-    this.authConfig = opts.authConfig;
+    this.authConfig = applyActiveAccount(opts.authConfig);
     this.stdin = opts.stdin;
     this.stdout = opts.stdout;
     this.stderr = opts.stderr;
@@ -297,6 +298,7 @@ export default class Client extends EventEmitter implements Stdio {
       this.updateAuthConfig({ refreshToken: tokens.refresh_token });
     }
 
+    this.authConfig = syncActiveAuthAccount(this.authConfig);
     this.writeToAuthConfigFile();
     this.writeToConfigFile();
 

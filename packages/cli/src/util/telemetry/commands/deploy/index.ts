@@ -62,6 +62,14 @@ export class DeployTelemetryClient
       });
     }
   }
+  trackCliOptionProject(project: string | undefined) {
+    if (project) {
+      this.trackCliOption({
+        option: 'project',
+        value: this.redactedValue,
+      });
+    }
+  }
   trackCliOptionRegions(regions: string | undefined) {
     if (regions) {
       this.trackCliOption({

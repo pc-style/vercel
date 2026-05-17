@@ -300,6 +300,7 @@ async function handleInitDeployment(
       nowConfig: localConfig,
       paths,
     }),
+    projectLinkName: parsedArguments.flags['--project'],
     v0: isV0,
   });
   if (typeof link === 'number') {
@@ -888,6 +889,7 @@ async function handleContinueSubcommand(
       nowConfig: localConfig,
       paths,
     }),
+    projectLinkName: parsedArguments.flags['--project'],
   });
   if (typeof link === 'number') {
     return link;
@@ -1188,6 +1190,7 @@ async function handleDefaultDeploy(
       nowConfig: localConfig,
       paths,
     }),
+    projectLinkName: parsedArguments.flags['--project'],
     v0: isV0,
   });
   if (typeof link === 'number') {

@@ -3,6 +3,7 @@ import type Client from '../../util/client';
 import { getCommandName } from '../../util/pkg-name';
 import { revocationRequest, processRevocationResponse } from '../../util/oauth';
 import o from '../../output-manager';
+import { removeActiveAuthAccount } from '../../util/auth-accounts';
 
 export async function logout(client: Client): Promise<number> {
   const { authConfig } = client;
@@ -35,7 +36,7 @@ export async function logout(client: Client): Promise<number> {
     client.updateConfig({ currentTeam: undefined });
     client.writeToConfigFile();
 
-    client.emptyAuthConfig();
+    client.authConfig = removeActiveAuthAccount(client.authConfig);
     client.writeToAuthConfigFile();
     o.debug('Configuration has been deleted');
 

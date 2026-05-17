@@ -80,6 +80,13 @@ export const globalCommandOptions = [
     deprecated: false,
   },
   { name: 'team', shorthand: 'T', type: String, deprecated: false },
+  {
+    name: 'project',
+    shorthand: null,
+    type: String,
+    argument: 'LINK_NAME',
+    deprecated: false,
+  },
   { name: 'api', shorthand: null, type: String, deprecated: false },
 ] as const;
 

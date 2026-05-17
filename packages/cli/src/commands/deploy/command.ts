@@ -69,6 +69,14 @@ export const initSubcommand = {
       description: 'Set default regions to enable the deployment on',
     },
     {
+      name: 'project',
+      shorthand: null,
+      type: String,
+      argument: 'LINK_NAME',
+      deprecated: false,
+      description: 'Use a named local project link from .vercel/project.json',
+    },
+    {
       name: 'prod',
       shorthand: null,
       type: Boolean,
@@ -160,6 +168,14 @@ export const continueSubcommand = {
         'Compress the deployment code into an archive before uploading it',
     },
     {
+      name: 'project',
+      shorthand: null,
+      type: String,
+      argument: 'LINK_NAME',
+      deprecated: false,
+      description: 'Use a named local project link from .vercel/project.json',
+    },
+    {
       name: 'error',
       shorthand: null,
       type: String,
@@ -241,6 +257,14 @@ export const deployCommand = {
       argument: 'REGION',
       deprecated: false,
       description: 'Set default regions to enable the deployment on',
+    },
+    {
+      name: 'project',
+      shorthand: null,
+      type: String,
+      argument: 'LINK_NAME',
+      deprecated: false,
+      description: 'Use a named local project link from .vercel/project.json',
     },
     {
       name: 'prebuilt',
@@ -361,6 +385,10 @@ export const deployCommand = {
     {
       name: 'Deploy with prebuilt outputs',
       value: ['vercel build', 'vercel deploy --prebuilt'],
+    },
+    {
+      name: 'Deploy using a named local project link',
+      value: 'vercel deploy --project staging',
     },
     {
       name: 'Write Deployment URL to a file',

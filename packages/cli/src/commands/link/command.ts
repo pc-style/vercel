@@ -46,6 +46,14 @@ export const linkCommand = {
       deprecated: false,
     },
     {
+      name: 'name',
+      description: 'Name for the local project link entry',
+      shorthand: null,
+      argument: 'LINK_NAME',
+      type: String,
+      deprecated: false,
+    },
+    {
       name: 'team',
       description:
         'Scope: team ID or slug (use with --project for non-interactive)',
@@ -73,6 +81,10 @@ export const linkCommand = {
     {
       name: 'Non-interactive: link to an existing project (CI/agents)',
       value: `${packageName} link --yes --team <team-id> --project <project-name-or-id>`,
+    },
+    {
+      name: 'Link a project under a named local entry',
+      value: `${packageName} link --name staging`,
     },
     {
       name: 'Link a specific directory to a Vercel Project',

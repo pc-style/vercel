@@ -40,6 +40,15 @@ export class LinkTelemetryClient
     }
   }
 
+  trackCliOptionName(name: string | undefined) {
+    if (name) {
+      this.trackCliOption({
+        option: 'name',
+        value: this.redactedValue,
+      });
+    }
+  }
+
   trackCliOptionTeam(value: string | undefined) {
     if (value) {
       this.trackCliOption({

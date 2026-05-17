@@ -9,11 +9,12 @@ import type {
   Team,
 } from '@vercel-internals/types';
 import {
+  DEFAULT_PROJECT_LINK_NAME,
   getLinkedProject,
   linkFolderToProject,
   getVercelDirectory,
   VERCEL_DIR_README,
-  VERCEL_DIR_PROJECT,
+  writeProjectLinkFile,
 } from '../projects/link';
 import { linkRepoProject } from './repo';
 import createProject from '../projects/create-project';
@@ -65,6 +66,7 @@ export interface SetupAndLinkOptions {
   successEmoji?: EmojiLabel;
   setupMsg?: string;
   projectName?: string;
+  projectLinkName?: string;
   /** When true, avoid prompts and return action_required payload when scope/project choice is needed */
   nonInteractive?: boolean;
   pullEnv?: boolean;
@@ -222,6 +224,7 @@ async function linkCrossTeamMatch({
   successEmoji,
   autoConfirm,
   pullEnv,
+  projectLinkName,
 }: {
   client: Client;
   path: string;
@@ -229,6 +232,7 @@ async function linkCrossTeamMatch({
   successEmoji: EmojiLabel;
   autoConfirm: boolean;
   pullEnv: boolean;
+  projectLinkName: string;
 }): Promise<ProjectLinkResult> {
   client.config.currentTeam =
     match.org.type === 'team' ? match.org.id : undefined;
@@ -241,6 +245,18 @@ async function linkCrossTeamMatch({
       remoteName: match.repo.remoteName,
       successEmoji,
     });
+    // Honor `--name` even for repo-root matches: `linkRepoProject` only writes
+    // `repo.json`. When the caller passed a non-default `projectLinkName`, also
+    // record the named entry in `.vercel/project.json` so `getProjectLink`
+    // (which is selected via `--project-link <name>`) can resolve it.
+    if (projectLinkName && projectLinkName !== DEFAULT_PROJECT_LINK_NAME) {
+      await writeProjectLinkFile(
+        path,
+        { projectId: match.project.id, orgId: match.org.id },
+        match.project.name,
+        projectLinkName
+      );
+    }
     await maybePullEnvAfterLink(client, path, autoConfirm, pullEnv);
     return {
       status: 'linked',
@@ -258,7 +274,8 @@ async function linkCrossTeamMatch({
     match.org.slug,
     successEmoji,
     autoConfirm,
-    pullEnv
+    pullEnv,
+    projectLinkName
   );
   return { status: 'linked', org: match.org, project: match.project };
 }
@@ -326,6 +343,7 @@ async function linkCrossTeamMatches({
   autoConfirm,
   nonInteractive,
   pullEnv,
+  projectLinkName,
 }: {
   client: Client;
   path: string;
@@ -334,6 +352,7 @@ async function linkCrossTeamMatches({
   autoConfirm: boolean;
   nonInteractive: boolean;
   pullEnv: boolean;
+  projectLinkName: string;
 }): Promise<ProjectLinkResult | null> {
   if (matches.length === 0) {
     return null;
@@ -350,6 +369,7 @@ async function linkCrossTeamMatches({
         successEmoji,
         autoConfirm,
         pullEnv,
+        projectLinkName,
       });
     }
 
@@ -365,6 +385,7 @@ async function linkCrossTeamMatches({
         successEmoji,
         autoConfirm,
         pullEnv,
+        projectLinkName,
       });
     }
     return null;
@@ -382,6 +403,7 @@ async function linkCrossTeamMatches({
       successEmoji,
       autoConfirm,
       pullEnv,
+      projectLinkName,
     });
   }
 
@@ -416,6 +438,7 @@ async function linkCrossTeamMatches({
     successEmoji,
     autoConfirm,
     pullEnv,
+    projectLinkName,
   });
 }
 
@@ -429,6 +452,7 @@ export default async function setupAndLink(
     successEmoji = 'link',
     setupMsg = 'Set up',
     projectName,
+    projectLinkName = 'default',
     nonInteractive = false,
     pullEnv = true,
     v0,
@@ -444,7 +468,7 @@ export default async function setupAndLink(
     return { status: 'error', exitCode: 1, reason: 'PATH_IS_FILE' };
   }
   if (!link) {
-    link = await getLinkedProject(client, path);
+    link = await getLinkedProject(client, path, projectName, projectLinkName);
   }
   const isTTY = client.stdin.isTTY;
   let rootDirectory: string | null = null;
@@ -458,7 +482,6 @@ export default async function setupAndLink(
   if (forceDelete) {
     const vercelDir = getVercelDirectory(path);
     remove(join(vercelDir, VERCEL_DIR_README));
-    remove(join(vercelDir, VERCEL_DIR_PROJECT));
   }
 
   if (!isTTY && !autoConfirm && !nonInteractive) {
@@ -516,6 +539,7 @@ export default async function setupAndLink(
       autoConfirm,
       nonInteractive,
       pullEnv,
+      projectLinkName,
     });
     if (linkedMatch) {
       return linkedMatch;
@@ -542,6 +566,7 @@ export default async function setupAndLink(
         autoConfirm,
         nonInteractive,
         pullEnv,
+        projectLinkName,
       });
       if (linkedLimitedMatch) {
         return linkedLimitedMatch;
@@ -613,7 +638,8 @@ export default async function setupAndLink(
       org.slug,
       successEmoji,
       autoConfirm,
-      pullEnv
+      pullEnv,
+      projectLinkName
     );
     return { status: 'linked', org, project };
   }
@@ -812,7 +838,8 @@ export default async function setupAndLink(
       org.slug,
       successEmoji,
       autoConfirm,
-      false // don't prompt to pull env for newly created projects
+      false, // don't prompt to pull env for newly created projects
+      projectLinkName
     );
 
     await connectGitRepository(client, path, project, autoConfirm, org);
