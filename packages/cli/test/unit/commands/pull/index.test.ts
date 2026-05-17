@@ -168,9 +168,12 @@ describe('pull', () => {
       const config = await fs.readJSON(path.join(cwd, '.vercel/project.json'));
       expect(config).toMatchInlineSnapshot(`
         {
-          "orgId": "team_dummy",
-          "projectId": "vercel-pull-next",
-          "projectName": "vercel-pull-next",
+          "projects": {
+            "vercel-pull-next": {
+              "orgId": "team_dummy",
+              "projectId": "vercel-pull-next",
+            },
+          },
           "settings": {
             "createdAt": 1555413045188,
           },

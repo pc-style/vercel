@@ -396,12 +396,13 @@ test('deploy with `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID`', async () => {
   await execCli(binaryPath, [directory, '--yes']);
 
   const link = require(path.join(directory, '.vercel/project.json'));
+  const [projectLink] = Object.values(link.projects);
   await remove(path.join(directory, '.vercel'));
 
   const output = await execCli(binaryPath, [directory], {
     env: {
-      VERCEL_ORG_ID: link.orgId,
-      VERCEL_PROJECT_ID: link.projectId,
+      VERCEL_ORG_ID: projectLink.orgId,
+      VERCEL_PROJECT_ID: projectLink.projectId,
     },
   });
 
@@ -418,8 +419,12 @@ test('deploy shows notice when project in `.vercel` does not exists', async () =
   await writeFile(
     path.join(directory, '.vercel/project.json'),
     JSON.stringify({
-      orgId: team.id,
-      projectId: 'asdf',
+      projects: {
+        'static-deployment': {
+          orgId: team.id,
+          projectId: 'asdf',
+        },
+      },
     })
   );
 
@@ -546,14 +551,15 @@ test('add a sensitive env var', async () => {
   await vc;
 
   const link = require(path.join(dir, '.vercel/project.json'));
+  const [projectLink] = Object.values(link.projects);
 
   const output = await execCli(
     binaryPath,
     ['env', 'add', 'envVarName', 'production', '--sensitive'],
     {
       env: {
-        VERCEL_ORG_ID: link.orgId,
-        VERCEL_PROJECT_ID: link.projectId,
+        VERCEL_ORG_ID: projectLink.orgId,
+        VERCEL_PROJECT_ID: projectLink.projectId,
       },
       input: 'test\n',
     }
@@ -591,10 +597,11 @@ test('override an existing env var', async () => {
   await vc;
 
   const link = require(path.join(dir, '.vercel/project.json'));
+  const [projectLink] = Object.values(link.projects);
   const options = {
     env: {
-      VERCEL_ORG_ID: link.orgId,
-      VERCEL_PROJECT_ID: link.projectId,
+      VERCEL_ORG_ID: projectLink.orgId,
+      VERCEL_PROJECT_ID: projectLink.projectId,
     },
   };
 

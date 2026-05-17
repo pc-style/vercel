@@ -39,9 +39,12 @@ describe('getLinkFromDir', () => {
     const vercelDir = join(repoRoot, '.vercel');
     await mkdirp(vercelDir);
     await writeJSON(join(vercelDir, 'project.json'), {
-      orgId: 'team_x',
-      projectId: 'proj_x',
-      projectName: 123,
+      projects: {
+        invalid: {
+          projectId: 'proj_x',
+          orgId: 123,
+        },
+      },
     });
 
     await expect(getLinkFromDir(vercelDir)).rejects.toThrow(

@@ -1,4 +1,8 @@
 {
-  "orgId": "team_dummy",
-  "projectId": "vercel-pull-next"
+  "projects": {
+    "vercel-pull-next": {
+      "orgId": "team_dummy",
+      "projectId": "vercel-pull-next"
+    }
+  }
 }

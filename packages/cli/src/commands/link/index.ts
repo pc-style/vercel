@@ -95,6 +95,7 @@ export default async function link(client: Client) {
   telemetry.trackCliFlagRepo(parsedArgs.flags['--repo']);
   telemetry.trackCliFlagYes(parsedArgs.flags['--yes']);
   telemetry.trackCliOptionProject(parsedArgs.flags['--project']);
+  telemetry.trackCliOptionName(parsedArgs.flags['--name']);
 
   if ('--confirm' in parsedArgs.flags) {
     telemetry.trackCliFlagConfirm(parsedArgs.flags['--confirm']);
@@ -138,6 +139,7 @@ export default async function link(client: Client) {
       autoConfirm: yes,
       forceDelete: true,
       projectName: parsedArgs.flags['--project'],
+      linkName: parsedArgs.flags['--name'],
       successEmoji: 'success',
       nonInteractive: linkNonInteractive,
       searchAcrossTeams: !explicitScopeProvided,

@@ -65,6 +65,7 @@ export interface SetupAndLinkOptions {
   successEmoji?: EmojiLabel;
   setupMsg?: string;
   projectName?: string;
+  linkName?: string;
   /** When true, avoid prompts and return action_required payload when scope/project choice is needed */
   nonInteractive?: boolean;
   pullEnv?: boolean;
@@ -222,6 +223,7 @@ async function linkCrossTeamMatch({
   successEmoji,
   autoConfirm,
   pullEnv,
+  linkName,
 }: {
   client: Client;
   path: string;
@@ -229,6 +231,7 @@ async function linkCrossTeamMatch({
   successEmoji: EmojiLabel;
   autoConfirm: boolean;
   pullEnv: boolean;
+  linkName?: string;
 }): Promise<ProjectLinkResult> {
   client.config.currentTeam =
     match.org.type === 'team' ? match.org.id : undefined;
@@ -258,7 +261,8 @@ async function linkCrossTeamMatch({
     match.org.slug,
     successEmoji,
     autoConfirm,
-    pullEnv
+    pullEnv,
+    linkName
   );
   return { status: 'linked', org: match.org, project: match.project };
 }
@@ -326,6 +330,7 @@ async function linkCrossTeamMatches({
   autoConfirm,
   nonInteractive,
   pullEnv,
+  linkName,
 }: {
   client: Client;
   path: string;
@@ -334,6 +339,7 @@ async function linkCrossTeamMatches({
   autoConfirm: boolean;
   nonInteractive: boolean;
   pullEnv: boolean;
+  linkName?: string;
 }): Promise<ProjectLinkResult | null> {
   if (matches.length === 0) {
     return null;
@@ -350,6 +356,7 @@ async function linkCrossTeamMatches({
         successEmoji,
         autoConfirm,
         pullEnv,
+        linkName,
       });
     }
 
@@ -365,6 +372,7 @@ async function linkCrossTeamMatches({
         successEmoji,
         autoConfirm,
         pullEnv,
+        linkName,
       });
     }
     return null;
@@ -382,6 +390,7 @@ async function linkCrossTeamMatches({
       successEmoji,
       autoConfirm,
       pullEnv,
+      linkName,
     });
   }
 
@@ -416,6 +425,7 @@ async function linkCrossTeamMatches({
     successEmoji,
     autoConfirm,
     pullEnv,
+    linkName,
   });
 }
 
@@ -429,6 +439,7 @@ export default async function setupAndLink(
     successEmoji = 'link',
     setupMsg = 'Set up',
     projectName,
+    linkName,
     nonInteractive = false,
     pullEnv = true,
     v0,
@@ -516,6 +527,7 @@ export default async function setupAndLink(
       autoConfirm,
       nonInteractive,
       pullEnv,
+      linkName,
     });
     if (linkedMatch) {
       return linkedMatch;
@@ -542,6 +554,7 @@ export default async function setupAndLink(
         autoConfirm,
         nonInteractive,
         pullEnv,
+        linkName,
       });
       if (linkedLimitedMatch) {
         return linkedLimitedMatch;
@@ -613,7 +626,8 @@ export default async function setupAndLink(
       org.slug,
       successEmoji,
       autoConfirm,
-      pullEnv
+      pullEnv,
+      linkName
     );
     return { status: 'linked', org, project };
   }
@@ -812,7 +826,8 @@ export default async function setupAndLink(
       org.slug,
       successEmoji,
       autoConfirm,
-      false // don't prompt to pull env for newly created projects
+      false, // don't prompt to pull env for newly created projects
+      linkName
     );
 
     await connectGitRepository(client, path, project, autoConfirm, org);

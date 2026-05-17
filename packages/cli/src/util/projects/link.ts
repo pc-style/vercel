@@ -37,24 +37,135 @@ export const VERCEL_DIR_README = 'README.txt';
 export const VERCEL_DIR_PROJECT = 'project.json';
 export const VERCEL_DIR_REPO = 'repo.json';
 
+type ProjectLinkEntry = {
+  projectId: string;
+  orgId: string;
+};
+
+type ProjectLinksConfig = {
+  projects: Record<string, ProjectLinkEntry>;
+};
+
 const linkSchema = {
   type: 'object',
-  required: ['projectId', 'orgId'],
+  required: ['projects'],
   properties: {
-    projectId: {
-      type: 'string',
-      minLength: 1,
-    },
-    orgId: {
-      type: 'string',
-      minLength: 1,
-    },
-    projectName: {
-      type: 'string',
-      minLength: 1,
+    projects: {
+      type: 'object',
+      minProperties: 1,
+      additionalProperties: {
+        type: 'object',
+        required: ['projectId', 'orgId'],
+        properties: {
+          projectId: {
+            type: 'string',
+            minLength: 1,
+          },
+          orgId: {
+            type: 'string',
+            minLength: 1,
+          },
+        },
+      },
     },
   },
 };
+
+function resolveProjectLinkFromMap(
+  projects: Record<string, ProjectLinkEntry>,
+  name?: string
+): ProjectLinkEntry | null {
+  const projectEntries = Object.entries(projects);
+  if (projectEntries.length === 0) {
+    return null;
+  }
+  if (name) {
+    const directMatch = projects[name];
+    if (directMatch) {
+      return directMatch;
+    }
+    const projectIdMatch = projectEntries.find(
+      ([, link]) => link.projectId === name
+    );
+    if (projectIdMatch) {
+      return projectIdMatch[1];
+    }
+    return null;
+  }
+  if (projects.default) {
+    return projects.default;
+  }
+  return projectEntries[0][1];
+}
+
+async function getProjectLinksFromDir(
+  dir: string
+): Promise<Record<string, ProjectLinkEntry> | null> {
+  try {
+    const json = await readFile(join(dir, VERCEL_DIR_PROJECT), 'utf8');
+
+    const ajv = new AJV();
+    const link = JSON.parse(json);
+
+    if (ajv.validate(linkSchema, link)) {
+      return (link as ProjectLinksConfig).projects;
+    }
+
+    const raw = link as Record<string, unknown>;
+    const projectId = raw.projectId;
+    const orgId = raw.orgId;
+    const projectName = raw.projectName;
+    const hasPlainLinkIds =
+      typeof projectId === 'string' &&
+      projectId.length > 0 &&
+      typeof orgId === 'string' &&
+      orgId.length > 0;
+    if (hasPlainLinkIds) {
+      if (
+        typeof projectName !== 'undefined' &&
+        (typeof projectName !== 'string' || projectName.length === 0)
+      ) {
+        throw new Error(
+          `Project Settings are invalid. To link your project again, remove the ${dir} directory.`
+        );
+      }
+      const legacyName =
+        typeof projectName === 'string' && projectName.length > 0
+          ? projectName
+          : 'default';
+      return {
+        [legacyName]: { projectId, orgId },
+      };
+    }
+    if (typeof raw.projects === 'undefined') {
+      // `vercel pull` with a repo-level link writes settings-only `project.json`
+      // (see writeProjectSettings). Treat as no per-directory link and fall
+      // back to `.vercel/repo.json` resolution.
+      return null;
+    }
+    throw new Error(
+      `Project Settings are invalid. To link your project again, remove the ${dir} directory.`
+    );
+  } catch (err: unknown) {
+    // link file does not exists, project is not linked
+    if (
+      isErrnoException(err) &&
+      err.code &&
+      ['ENOENT', 'ENOTDIR'].includes(err.code)
+    ) {
+      return null;
+    }
+
+    // link file can't be read
+    if (isError(err) && err.name === 'SyntaxError') {
+      throw new Error(
+        `Project Settings could not be retrieved. To link your project again, remove the ${dir} directory.`
+      );
+    }
+
+    throw err;
+  }
+}
 
 /**
  * Returns the `<cwd>/.vercel` directory for the current project
@@ -79,13 +190,17 @@ export function getVercelDirectory(cwd: string): string {
 export async function getProjectLink(
   client: Client,
   path: string,
-  projectName?: string
+  projectName?: string,
+  linkName?: string
 ): Promise<ProjectLink | null> {
   // Prefer an explicit per-directory link (`.vercel/project.json`) over a
   // repository-level link (`.vercel/repo.json`). This prevents scenarios where
   // a freshly-created local link (e.g. after `vc link`) is ignored and the
   // user is re-prompted to select a repo-linked project again.
-  const dirLink = await getLinkFromDir(getVercelDirectory(path));
+  const dirLink = await getLinkFromDir(
+    getVercelDirectory(path),
+    linkName ?? projectName
+  );
   if (dirLink) {
     return dirLink;
   }
@@ -162,54 +277,15 @@ async function getProjectLinkFromRepoLink(
 }
 
 export async function getLinkFromDir<T = ProjectLink>(
-  dir: string
+  dir: string,
+  linkName?: string
 ): Promise<T | null> {
-  try {
-    const json = await readFile(join(dir, VERCEL_DIR_PROJECT), 'utf8');
-
-    const ajv = new AJV();
-    const link: T = JSON.parse(json);
-
-    if (!ajv.validate(linkSchema, link)) {
-      const raw = link as Record<string, unknown>;
-      const projectId = raw.projectId;
-      const orgId = raw.orgId;
-      const hasPlainLinkIds =
-        typeof projectId === 'string' &&
-        projectId.length > 0 &&
-        typeof orgId === 'string' &&
-        orgId.length > 0;
-      if (!hasPlainLinkIds) {
-        // `vercel pull` with a repo-level link writes settings-only `project.json`
-        // (see writeProjectSettings). Treat as no per-directory link and fall
-        // back to `.vercel/repo.json` resolution.
-        return null;
-      }
-      throw new Error(
-        `Project Settings are invalid. To link your project again, remove the ${dir} directory.`
-      );
-    }
-
-    return link;
-  } catch (err: unknown) {
-    // link file does not exists, project is not linked
-    if (
-      isErrnoException(err) &&
-      err.code &&
-      ['ENOENT', 'ENOTDIR'].includes(err.code)
-    ) {
-      return null;
-    }
-
-    // link file can't be read
-    if (isError(err) && err.name === 'SyntaxError') {
-      throw new Error(
-        `Project Settings could not be retrieved. To link your project again, remove the ${dir} directory.`
-      );
-    }
-
-    throw err;
+  const projects = await getProjectLinksFromDir(dir);
+  if (!projects) {
+    return null;
   }
+  const resolved = resolveProjectLinkFromMap(projects, linkName);
+  return resolved ? (resolved as T) : null;
 }
 
 async function getOrgById(client: Client, orgId: string): Promise<Org | null> {
@@ -274,13 +350,16 @@ async function hasProjectLink(
   }
 
   // if the project is already linked, we skip linking
-  const link = await getLinkFromDir(getVercelDirectory(path));
-  if (
-    link &&
-    link.orgId === projectLink.orgId &&
-    link.projectId === projectLink.projectId
-  ) {
-    return true;
+  const projects = await getProjectLinksFromDir(getVercelDirectory(path));
+  if (projects) {
+    const hasMatchingLink = Object.values(projects).some(
+      link =>
+        link.orgId === projectLink.orgId &&
+        link.projectId === projectLink.projectId
+    );
+    if (hasMatchingLink) {
+      return true;
+    }
   }
 
   return false;
@@ -289,7 +368,8 @@ async function hasProjectLink(
 export async function getLinkedProject(
   client: Client,
   path = client.cwd,
-  projectName?: string
+  projectName?: string,
+  linkName?: string
 ): Promise<ProjectLinkResult> {
   path = await resolveProjectCwd(path);
 
@@ -311,7 +391,7 @@ export async function getLinkedProject(
   const link =
     VERCEL_ORG_ID && VERCEL_PROJECT_ID
       ? { orgId: VERCEL_ORG_ID, projectId: VERCEL_PROJECT_ID }
-      : await getProjectLink(client, path, projectName);
+      : await getProjectLink(client, path, projectName, linkName);
 
   if (!link) {
     return { status: 'not_linked', org: null, project: null };
@@ -402,8 +482,8 @@ The ".vercel" folder is created when you link a directory to a Vercel project.
 
 > What does the "project.json" file contain?
 The "project.json" file contains:
-- The ID of the Vercel project that you linked ("projectId")
-- The ID of the user or team your Vercel project is owned by ("orgId")
+- A map of linked projects keyed by name ("projects")
+- Each project entry has the Vercel project ID ("projectId") and team/user ID ("orgId")
 
 > Should I commit the ".vercel" folder?
 No, you should not share the ".vercel" folder with anyone.
@@ -425,7 +505,8 @@ export async function linkFolderToProject(
   orgSlug: string,
   successEmoji: EmojiLabel = 'link',
   autoConfirm: boolean = false,
-  pullEnv: boolean = true
+  pullEnv: boolean = true,
+  linkName?: string
 ) {
   // if the project is already linked, we skip linking
   if (await hasProjectLink(client, projectLink, path)) {
@@ -443,11 +524,46 @@ export async function linkFolderToProject(
     throw err;
   }
 
+  const projectJsonPath = join(path, VERCEL_DIR, VERCEL_DIR_PROJECT);
+  let existingConfig: Record<string, unknown> = {};
+  try {
+    const existingJson = await readFile(projectJsonPath, 'utf8');
+    const parsed = JSON.parse(existingJson);
+    if (parsed && typeof parsed === 'object') {
+      existingConfig = parsed as Record<string, unknown>;
+    }
+  } catch (err: unknown) {
+    if (
+      !(
+        isErrnoException(err) &&
+        err.code &&
+        ['ENOENT', 'ENOTDIR'].includes(err.code)
+      )
+    ) {
+      output.debug(`Failed to read existing project.json: ${err}`);
+    }
+  }
+
+  const existingProjects =
+    typeof existingConfig.projects === 'object' &&
+    existingConfig.projects !== null
+      ? (existingConfig.projects as Record<string, ProjectLinkEntry>)
+      : {};
+  const nextProjects = {
+    ...existingProjects,
+    [linkName ?? projectName]: {
+      projectId: projectLink.projectId,
+      orgId: projectLink.orgId,
+    },
+  };
   await writeFile(
-    join(path, VERCEL_DIR, VERCEL_DIR_PROJECT),
+    projectJsonPath,
     JSON.stringify({
-      ...projectLink,
-      projectName,
+      ...existingConfig,
+      projects: nextProjects,
+      projectId: undefined,
+      orgId: undefined,
+      projectName: undefined,
     })
   );
 

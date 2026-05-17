@@ -46,6 +46,14 @@ export const linkCommand = {
       deprecated: false,
     },
     {
+      name: 'name',
+      description: 'Name to store this link under in project.json',
+      shorthand: null,
+      argument: 'NAME',
+      type: String,
+      deprecated: false,
+    },
+    {
       name: 'team',
       description:
         'Scope: team ID or slug (use with --project for non-interactive)',

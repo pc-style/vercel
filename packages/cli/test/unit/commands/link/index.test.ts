@@ -674,9 +674,10 @@ describe('link', () => {
       expect(exitCode, 'exit code for "link"').toEqual(0);
 
       const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-      expect(projectJson.orgId).toEqual(team.id);
-      expect(projectJson.projectId).toEqual(project.id);
-      expect(projectJson.projectName).toEqual(project.name);
+      expect(projectJson.projects[project.name]).toEqual({
+        orgId: team.id,
+        projectId: project.id,
+      });
 
       // Verify env pull was called with --yes flag and correct source
       expect(mockPull).toHaveBeenCalledWith(
@@ -715,6 +716,65 @@ describe('link', () => {
     });
   });
 
+  describe('--name', () => {
+    it('should store the link under the provided name', async () => {
+      const cwd = setupTmpDir();
+      useUser({ version: 'northstar' });
+      const [team] = useTeams('team_dummy') as Team[];
+      const { project } = useProject({
+        ...defaultProject,
+        id: basename(cwd),
+        name: basename(cwd),
+      });
+      useUnknownProject();
+
+      client.cwd = cwd;
+      client.setArgv('--project', project.name!, '--name', 'custom-link', '--yes');
+      const exitCode = await link(client);
+
+      expect(exitCode, 'exit code for "link"').toEqual(0);
+
+      const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
+      expect(projectJson.projects['custom-link']).toEqual({
+        orgId: team.id,
+        projectId: project.id,
+      });
+      expect(Object.keys(projectJson.projects)).toEqual(['custom-link']);
+    });
+
+    it('should track use of redacted `--name` option', async () => {
+      const cwd = setupTmpDir();
+      useUser();
+      useTeams('team_dummy');
+      const { project } = useProject({
+        ...defaultProject,
+        id: basename(cwd),
+        name: basename(cwd),
+      });
+      useUnknownProject();
+
+      client.cwd = cwd;
+      client.setArgv('--project', project.name!, '--name', 'custom-link', '--yes');
+      const exitCode = await link(client);
+      expect(exitCode, 'exit code for "link"').toEqual(0);
+
+      expect(client.telemetryEventStore).toHaveTelemetryEvents([
+        {
+          key: 'flag:yes',
+          value: 'TRUE',
+        },
+        {
+          key: 'option:project',
+          value: '[REDACTED]',
+        },
+        {
+          key: 'option:name',
+          value: '[REDACTED]',
+        },
+      ]);
+    });
+  });
+
   describe('--yes', () => {
     it('should skip prompts for link with `--yes`', async () => {
       useUser({ version: 'northstar' });
@@ -740,9 +800,10 @@ describe('link', () => {
       expect(exitCode, 'exit code for "link"').toEqual(0);
 
       const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-      expect(projectJson.orgId).toEqual(team.id);
-      expect(projectJson.projectId).toEqual(project.id);
-      expect(projectJson.projectName).toEqual(project.name);
+      expect(projectJson.projects[project.name]).toEqual({
+        orgId: team.id,
+        projectId: project.id,
+      });
 
       const gitignore = await readFile(join(cwd, '.gitignore'), 'utf8');
       expect(gitignore).toBe(`.vercel${EOL}`);
@@ -867,9 +928,10 @@ describe('link', () => {
     expect(exitCode, 'exit code for "link"').toEqual(0);
 
     const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-    expect(projectJson.orgId).toEqual(team.id);
-    expect(projectJson.projectId).toEqual(project.id);
-    expect(projectJson.projectName).toEqual(project.name);
+    expect(projectJson.projects[project.name]).toEqual({
+      orgId: team.id,
+      projectId: project.id,
+    });
   });
 
   it('should create new Project', async () => {
@@ -996,7 +1058,8 @@ describe('link', () => {
     });
 
     const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-    const project = await getProjectByNameOrId(client, projectJson.projectId);
+    const [projectLink] = Object.values(projectJson.projects);
+    const project = await getProjectByNameOrId(client, projectLink.projectId);
     if (project instanceof ProjectNotFound) {
       throw project;
     }
@@ -1060,7 +1123,8 @@ describe('link', () => {
     );
 
     const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-    const project = await getProjectByNameOrId(client, projectJson.projectId);
+    const [projectLink] = Object.values(projectJson.projects);
+    const project = await getProjectByNameOrId(client, projectLink.projectId);
     if (project instanceof ProjectNotFound) {
       throw project;
     }
@@ -1124,7 +1188,8 @@ describe('link', () => {
     );
 
     const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-    const project = await getProjectByNameOrId(client, projectJson.projectId);
+    const [projectLink] = Object.values(projectJson.projects);
+    const project = await getProjectByNameOrId(client, projectLink.projectId);
     if (project instanceof ProjectNotFound) {
       throw project;
     }
@@ -1222,7 +1287,8 @@ describe('link', () => {
     expect(await pathExists(join(cwd, 'vercel.json'))).toBe(false);
 
     const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-    const project = await getProjectByNameOrId(client, projectJson.projectId);
+    const [projectLink] = Object.values(projectJson.projects);
+    const project = await getProjectByNameOrId(client, projectLink.projectId);
     if (project instanceof ProjectNotFound) {
       throw project;
     }
@@ -1304,7 +1370,8 @@ describe('link', () => {
     expect(await pathExists(join(cwd, 'vercel.json'))).toBe(false);
 
     const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-    const project = await getProjectByNameOrId(client, projectJson.projectId);
+    const [projectLink] = Object.values(projectJson.projects);
+    const project = await getProjectByNameOrId(client, projectLink.projectId);
     if (project instanceof ProjectNotFound) {
       throw project;
     }
@@ -1355,7 +1422,8 @@ describe('link', () => {
     expect(exitCode, 'exit code for "link"').toEqual(0);
 
     const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-    const project = await getProjectByNameOrId(client, projectJson.projectId);
+    const [projectLink] = Object.values(projectJson.projects);
+    const project = await getProjectByNameOrId(client, projectLink.projectId);
     if (project instanceof ProjectNotFound) {
       throw project;
     }
@@ -1438,18 +1506,20 @@ describe('link', () => {
     expect(exitCodeLink1, 'exit code for "link"').toEqual(0);
 
     let projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-    expect(projectJson.orgId).toEqual(team.id);
-    expect(projectJson.projectId).toEqual(proj1.id);
-    expect(projectJson.projectName).toEqual(proj1.name);
+    expect(projectJson.projects[proj1.name]).toEqual({
+      orgId: team.id,
+      projectId: proj1.id,
+    });
 
     client.setArgv('--project', proj2.name!, '--yes');
     const exitCodeLink2 = await link(client);
     expect(exitCodeLink2, 'exit code for "link"').toEqual(0);
 
     projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-    expect(projectJson.orgId).toEqual(team.id);
-    expect(projectJson.projectId).toEqual(proj2.id);
-    expect(projectJson.projectName).toEqual(proj2.name);
+    expect(projectJson.projects[proj2.name]).toEqual({
+      orgId: team.id,
+      projectId: proj2.id,
+    });
   });
 
   it('should track use of deprecated `cwd` positional argument', async () => {
@@ -1872,9 +1942,10 @@ describe('link', () => {
       expect(exitCode, 'exit code for "link"').toEqual(0);
 
       const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-      expect(projectJson.orgId).toEqual(team.id);
-      expect(projectJson.projectId).toEqual(project.id);
-      expect(projectJson.projectName).toEqual(project.name);
+      expect(projectJson.projects[project.name]).toEqual({
+        orgId: team.id,
+        projectId: project.id,
+      });
     });
 
     it('should prompt for confirmation when single match found interactively', async () => {
@@ -1908,9 +1979,10 @@ describe('link', () => {
       expect(exitCode, 'exit code for "link"').toEqual(0);
 
       const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-      expect(projectJson.orgId).toEqual(team.id);
-      expect(projectJson.projectId).toEqual(project.id);
-      expect(projectJson.projectName).toEqual(project.name);
+      expect(projectJson.projects[project.name]).toEqual({
+        orgId: team.id,
+        projectId: project.id,
+      });
     });
 
     it('should fall through to selectOrg when user declines cross-team match', async () => {
@@ -2047,8 +2119,10 @@ describe('link', () => {
       expect(reauthSpy).not.toHaveBeenCalled();
 
       const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-      expect(projectJson.orgId).toEqual(teamA.id);
-      expect(projectJson.projectId).toEqual(projectA.id);
+      expect(projectJson.projects[projectA.name]).toEqual({
+        orgId: teamA.id,
+        projectId: projectA.id,
+      });
 
       reauthSpy.mockRestore();
     });
@@ -2091,8 +2165,10 @@ describe('link', () => {
 
       expect(exitCode).toEqual(0);
       const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-      expect(projectJson.orgId).toEqual(teamA.id);
-      expect(projectJson.projectId).toEqual(projectA.id);
+      expect(projectJson.projects[projectA.name]).toEqual({
+        orgId: teamA.id,
+        projectId: projectA.id,
+      });
     });
 
     it('should skip SAML-limited teams during cross-team search', async () => {
@@ -2155,8 +2231,10 @@ describe('link', () => {
       expect(reauthSpy).not.toHaveBeenCalled();
 
       const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-      expect(projectJson.orgId).toEqual(teamA.id);
-      expect(projectJson.projectId).toEqual(projectA.id);
+      expect(projectJson.projects[projectA.name]).toEqual({
+        orgId: teamA.id,
+        projectId: projectA.id,
+      });
 
       reauthSpy.mockRestore();
     });
@@ -2472,8 +2550,10 @@ describe('link', () => {
       expect(exitCode).toEqual(0);
 
       const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-      expect(projectJson.projectId).toEqual(limitedProject.id);
-      expect(projectJson.orgId).toEqual(limitedTeam.id);
+      expect(projectJson.projects[limitedProject.name]).toEqual({
+        orgId: limitedTeam.id,
+        projectId: limitedProject.id,
+      });
     });
 
     describe('multiple matches', () => {
@@ -2516,8 +2596,10 @@ describe('link', () => {
 
         expect(exitCode).toEqual(0);
         const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-        expect(projectJson.projectId).toEqual('proj-on-a');
-        expect(projectJson.orgId).toEqual('team_a');
+        expect(projectJson.projects[projectName]).toEqual({
+          orgId: 'team_a',
+          projectId: 'proj-on-a',
+        });
       });
 
       it('should prompt to select when --yes but no current team match', async () => {
@@ -2565,7 +2647,10 @@ describe('link', () => {
         expect(exitCode).toEqual(0);
 
         const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-        expect(projectJson.projectId).toEqual('proj-on-a');
+        expect(projectJson.projects[projectName]).toEqual({
+          orgId: 'team_a',
+          projectId: 'proj-on-a',
+        });
       });
 
       it('should prompt to select interactively when multiple matches', async () => {
@@ -2619,7 +2704,10 @@ describe('link', () => {
         expect(exitCode).toEqual(0);
 
         const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-        expect(projectJson.projectId).toEqual('proj-on-a');
+        expect(projectJson.projects[projectName]).toEqual({
+          orgId: 'team_a',
+          projectId: 'proj-on-a',
+        });
       });
 
       it('should default to the current team match when prompting interactively', async () => {
@@ -2673,8 +2761,10 @@ describe('link', () => {
         expect(exitCode).toEqual(0);
 
         const projectJson = await readJSON(join(cwd, '.vercel/project.json'));
-        expect(projectJson.projectId).toEqual('proj-on-b');
-        expect(projectJson.orgId).toEqual('team_b');
+        expect(projectJson.projects[projectName]).toEqual({
+          orgId: 'team_b',
+          projectId: 'proj-on-b',
+        });
       });
 
       it('should fall through to selectOrg when non-interactive with multiple matches', async () => {

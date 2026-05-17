@@ -3,10 +3,11 @@ import { outputJSON, readFile } from 'fs-extra';
 import type { VercelConfig } from '@vercel/client';
 import { VERCEL_DIR, VERCEL_DIR_PROJECT } from './link';
 import type { PartialProjectSettings } from '../input/edit-project-settings';
-import type { Org, Project, ProjectLink } from '@vercel-internals/types';
+import type { Org, Project } from '@vercel-internals/types';
 import { isErrnoException, isError } from '@vercel/error-utils';
 
-export type ProjectLinkAndSettings = Partial<ProjectLink> & {
+export type ProjectLinkAndSettings = {
+  projects?: Record<string, { projectId: string; orgId: string }>;
   settings: {
     createdAt: Project['createdAt'];
     installCommand: Project['installCommand'];
@@ -41,9 +42,16 @@ export async function writeProjectSettings(
   }
 
   const projectLinkAndSettings: ProjectLinkAndSettings = {
-    projectId: isRepoLinked ? undefined : project.id,
-    orgId: isRepoLinked ? undefined : org.id,
-    projectName: isRepoLinked ? undefined : project.name,
+    ...(isRepoLinked
+      ? {}
+      : {
+          projects: {
+            [project.name]: {
+              projectId: project.id,
+              orgId: org.id,
+            },
+          },
+        }),
     settings: {
       createdAt: project.createdAt,
       framework: project.framework,

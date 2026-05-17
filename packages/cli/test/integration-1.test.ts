@@ -282,8 +282,9 @@ test('[vc link] with vercel.json configuration overrides should create a valid d
   expect(exitCode, formatOutput({ stdout, stderr })).toBe(0);
 
   const link = require(path.join(directory, '.vercel/project.json'));
+  const [projectLink] = Object.values(link.projects);
 
-  const resEnv = await apiFetch(`/v4/projects/${link.projectId}`);
+  const resEnv = await apiFetch(`/v4/projects/${projectLink.projectId}`);
 
   expect(resEnv.status).toBe(200);
 
@@ -718,8 +719,9 @@ test.skip('deploy `api-env` fixture and test `vercel env` command', async () => 
 
   async function enableAutoExposeSystemEnvs() {
     const link = require(path.join(target, '.vercel/project.json'));
+    const [projectLink] = Object.values(link.projects);
 
-    const res = await apiFetch(`/v2/projects/${link.projectId}`, {
+    const res = await apiFetch(`/v2/projects/${projectLink.projectId}`, {
       method: 'PATCH',
       body: JSON.stringify({ autoExposeSystemEnvs: true }),
     });
@@ -727,7 +729,7 @@ test.skip('deploy `api-env` fixture and test `vercel env` command', async () => 
     expect(res.status).toBe(200);
     if (res.status === 200) {
       console.log(
-        `Set autoExposeSystemEnvs=true for project ${link.projectId}`
+        `Set autoExposeSystemEnvs=true for project ${projectLink.projectId}`
       );
     }
   }
