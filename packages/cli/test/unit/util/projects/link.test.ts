@@ -384,6 +384,41 @@ describe('getLinkedProject', () => {
     expect(link.project.id).toEqual('project_default');
   });
 
+  it('should not treat link --project as a named local project link when global flags precede the command', async () => {
+    const cwd = setupTmpDir('project-link-global-flag-before-link');
+    await mkdirp(join(cwd, '.vercel'));
+    await writeJSON(join(cwd, '.vercel', 'project.json'), {
+      projects: {
+        default: {
+          orgId: 'team_dummy',
+          projectId: 'project_default',
+          projectName: 'default-project',
+        },
+        staging: {
+          orgId: 'team_dummy',
+          projectId: 'project_staging',
+          projectName: 'staging-project',
+        },
+      },
+    });
+
+    useUser();
+    useTeams('team_dummy');
+    useProject({
+      ...defaultProject,
+      id: 'project_default',
+      name: 'default-project',
+    });
+
+    client.setArgv('--cwd', cwd, 'link', '--project', 'staging');
+    const link = await getLinkedProject(client, cwd);
+
+    if (link.status !== 'linked') {
+      throw new Error('Expected to be linked');
+    }
+    expect(link.project.id).toEqual('project_default');
+  });
+
   it('should return link with legacy `repo.json` (top-level orgId)', async () => {
     const cwd = fixture('monorepo-link-legacy');
 

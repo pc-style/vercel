@@ -27,6 +27,7 @@ import output from '../../output-manager';
 import { printAlignedLabel } from '../output/print-aligned-label';
 import pull from '../../commands/env/pull';
 import { resolveProjectCwd } from './find-project-root';
+import { globalCliFlagTakesValue } from '../arg-common';
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -81,7 +82,7 @@ function isProjectLink(value: unknown): value is ProjectLink {
 // kept for backwards compatibility, but skipped for `vc link` because that
 // command defines `--project` as a Vercel project name or ID.
 function getProjectLinkNameFromArgs(argv: string[]): string | undefined {
-  const allowLegacyProjectFlag = argv[2] !== 'link';
+  const allowLegacyProjectFlag = getCommandNameFromArgs(argv) !== 'link';
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--project-link') {
@@ -95,6 +96,18 @@ function getProjectLinkNameFromArgs(argv: string[]): string | undefined {
     }
     if (allowLegacyProjectFlag && arg.startsWith('--project=')) {
       return arg.slice('--project='.length);
+    }
+  }
+}
+
+function getCommandNameFromArgs(argv: string[]): string | undefined {
+  for (let i = 2; i < argv.length; i++) {
+    const arg = argv[i];
+    if (!arg.startsWith('-')) {
+      return arg;
+    }
+    if (!arg.includes('=') && globalCliFlagTakesValue(arg)) {
+      i++;
     }
   }
 }
