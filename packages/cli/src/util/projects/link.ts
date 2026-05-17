@@ -77,11 +77,11 @@ function isProjectLink(value: unknown): value is ProjectLink {
   );
 }
 
-// Parses an unambiguous global flag used to select a named local project link
-// (e.g. `vc dev --project-link staging`). We deliberately do NOT parse
-// `--project` here because some commands (notably `vc link`) define
-// `--project` with a different meaning (Vercel project name or ID).
+// Parses global flags used to select a named local project link. `--project` is
+// kept for backwards compatibility, but skipped for `vc link` because that
+// command defines `--project` as a Vercel project name or ID.
 function getProjectLinkNameFromArgs(argv: string[]): string | undefined {
+  const allowLegacyProjectFlag = argv[2] !== 'link';
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--project-link') {
@@ -89,6 +89,12 @@ function getProjectLinkNameFromArgs(argv: string[]): string | undefined {
     }
     if (arg.startsWith('--project-link=')) {
       return arg.slice('--project-link='.length);
+    }
+    if (allowLegacyProjectFlag && arg === '--project') {
+      return argv[i + 1];
+    }
+    if (allowLegacyProjectFlag && arg.startsWith('--project=')) {
+      return arg.slice('--project='.length);
     }
   }
 }
@@ -525,6 +531,7 @@ export async function writeProjectLinkFile(
   projectLinkName: string = DEFAULT_PROJECT_LINK_NAME
 ) {
   const dir = join(path, VERCEL_DIR);
+  await ensureDir(dir);
   const existingLink = await readProjectLinkFile(dir);
   const projects = getProjectLinksFromFile(existingLink);
   projects[projectLinkName] = {

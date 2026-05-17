@@ -62,6 +62,11 @@ export default async function accounts(client: Client): Promise<number> {
     return list(client, args);
   }
 
+  if (!subcommand && args.length > 0) {
+    output.error(`Unknown argument or option: ${args[0]}`);
+    return 1;
+  }
+
   if (needHelp) {
     telemetry.trackCliFlagHelp('accounts');
     output.print(help(accountsCommand, { columns: client.stderr.columns }));

@@ -1,6 +1,8 @@
 import { describe, beforeEach, expect, it } from 'vitest';
 import { client } from '../../../mocks/client';
 import accounts from '../../../../src/commands/accounts';
+import { accountsCommand } from '../../../../src/commands/accounts/command';
+import { buildCommandSynopsisLine } from '../../../../src/commands/help';
 
 describe('accounts list', () => {
   beforeEach(() => {
@@ -70,6 +72,33 @@ describe('accounts list', () => {
         value: 'ls',
       },
     ]);
+  });
+
+  it('returns an error for unexpected arguments', async () => {
+    client.authConfig = {
+      token: 'token_work',
+      skipWrite: true,
+      accounts: {
+        work: {
+          token: 'token_work',
+          email: 'work@example.com',
+          userId: 'u_work',
+        },
+      },
+      activeAccount: 'work',
+    } as any;
+
+    client.setArgv('accounts', '--unknown');
+    const exitCode = await accounts(client);
+
+    expect(exitCode).toBe(1);
+    await expect(client.stderr).toOutput(
+      'Error: Unknown argument or option: --unknown'
+    );
+  });
+
+  it('keeps the accounts command optional in help synopsis', () => {
+    expect(buildCommandSynopsisLine(accountsCommand)).toContain('[command]');
   });
 
   it('emits valid JSON when --json is set', async () => {

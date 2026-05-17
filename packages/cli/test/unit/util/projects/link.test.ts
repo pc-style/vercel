@@ -4,6 +4,7 @@ import { mkdirp, writeJSON } from 'fs-extra';
 import {
   getLinkFromDir,
   getLinkedProject,
+  writeProjectLinkFile,
 } from '../../../../src/util/projects/link';
 import { client } from '../../../mocks/client';
 
@@ -18,6 +19,25 @@ const fixture = (name: string) =>
   join(__dirname, '../../../fixtures/unit', name);
 
 describe('getLinkFromDir', () => {
+  it('creates the .vercel directory when writing a project link', async () => {
+    const cwd = setupTmpDir('write-project-link-creates-dir');
+
+    await writeProjectLinkFile(
+      cwd,
+      { orgId: 'team_dummy', projectId: 'project_staging' },
+      'staging-project',
+      'staging'
+    );
+
+    await expect(
+      getLinkFromDir(join(cwd, '.vercel'), 'staging')
+    ).resolves.toEqual({
+      orgId: 'team_dummy',
+      projectId: 'project_staging',
+      projectName: 'staging-project',
+    });
+  });
+
   it('returns null for settings-only project.json (repo-linked pull output)', async () => {
     const repoRoot = setupTmpDir('settings-only-project-json');
     const vercelDir = join(repoRoot, '.vercel');
@@ -292,6 +312,76 @@ describe('getLinkedProject', () => {
     }
     expect(link.project.id).toEqual('project-json-project');
     expect(link.repoRoot).toBeUndefined();
+  });
+
+  it('should select a named local project link from the legacy --project flag', async () => {
+    const cwd = setupTmpDir('project-link-legacy-project-flag');
+    await mkdirp(join(cwd, '.vercel'));
+    await writeJSON(join(cwd, '.vercel', 'project.json'), {
+      projects: {
+        default: {
+          orgId: 'team_dummy',
+          projectId: 'project_default',
+          projectName: 'default-project',
+        },
+        staging: {
+          orgId: 'team_dummy',
+          projectId: 'project_staging',
+          projectName: 'staging-project',
+        },
+      },
+    });
+
+    useUser();
+    useTeams('team_dummy');
+    useProject({
+      ...defaultProject,
+      id: 'project_staging',
+      name: 'staging-project',
+    });
+
+    client.setArgv('dev', '--project', 'staging');
+    const link = await getLinkedProject(client, cwd);
+
+    if (link.status !== 'linked') {
+      throw new Error('Expected to be linked');
+    }
+    expect(link.project.id).toEqual('project_staging');
+  });
+
+  it('should not treat the link command --project flag as a named local project link', async () => {
+    const cwd = setupTmpDir('project-link-link-command-project-flag');
+    await mkdirp(join(cwd, '.vercel'));
+    await writeJSON(join(cwd, '.vercel', 'project.json'), {
+      projects: {
+        default: {
+          orgId: 'team_dummy',
+          projectId: 'project_default',
+          projectName: 'default-project',
+        },
+        staging: {
+          orgId: 'team_dummy',
+          projectId: 'project_staging',
+          projectName: 'staging-project',
+        },
+      },
+    });
+
+    useUser();
+    useTeams('team_dummy');
+    useProject({
+      ...defaultProject,
+      id: 'project_default',
+      name: 'default-project',
+    });
+
+    client.setArgv('link', '--project', 'staging');
+    const link = await getLinkedProject(client, cwd);
+
+    if (link.status !== 'linked') {
+      throw new Error('Expected to be linked');
+    }
+    expect(link.project.id).toEqual('project_default');
   });
 
   it('should return link with legacy `repo.json` (top-level orgId)', async () => {

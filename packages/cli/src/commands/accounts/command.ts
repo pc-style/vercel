@@ -31,7 +31,21 @@ export const accountsCommand = {
   aliases: [],
   description: 'Manage and switch between saved Vercel accounts.',
   arguments: [],
-  subcommands: [listSubcommand],
+  subcommands: [
+    // Hidden placeholder so the help synopsis renders [command] as optional
+    // (help.ts treats `command` as required unless a subcommand has `default: true`)
+    {
+      name: 'switch',
+      aliases: [],
+      description: '',
+      default: true,
+      hidden: true,
+      arguments: [],
+      options: [],
+      examples: [],
+    },
+    listSubcommand,
+  ],
   options: [],
   examples: [
     {
