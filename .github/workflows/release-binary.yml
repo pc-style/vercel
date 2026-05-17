@@ -31,16 +31,16 @@ jobs:
       matrix:
         include:
           - runs-on: macos-15
-            target: node22.22.2-macos-arm64
+            target: node22-macos-arm64
             asset: vercel-darwin-arm64
             ext: ''
             sign: true
             smoke: true
-            custom_node_path: .node-runtime/node-v22.22.2-darwin-arm64-small-icu/bin/node
-            custom_node_platform: darwin
-            custom_node_arch: arm64
+            custom_node_path: ''
+            custom_node_platform: ''
+            custom_node_arch: ''
           - runs-on: macos-13
-            target: node22.22.2-macos-x64
+            target: node22-macos-x64
             asset: vercel-darwin-x64
             ext: ''
             sign: true
@@ -48,33 +48,33 @@ jobs:
             custom_node_path: ''
             custom_node_platform: ''
             custom_node_arch: ''
-          - runs-on: ubuntu-latest-32-core-arm-oss
-            target: node22.22.2-linux-arm64
+          - runs-on: ubuntu-latest
+            target: node22-linux-arm64
             asset: vercel-linux-arm64
             ext: ''
             sign: false
             smoke: false
-            custom_node_path: .node-runtime/node-v22.22.2-linux-arm64-small-icu/bin/node
-            custom_node_platform: linux
-            custom_node_arch: arm64
-          - runs-on: ubuntu-latest-32-core-oss
-            target: node22.22.2-linux-x64
+            custom_node_path: ''
+            custom_node_platform: ''
+            custom_node_arch: ''
+          - runs-on: ubuntu-latest
+            target: node22-linux-x64
             asset: vercel-linux-x64
             ext: ''
             sign: false
             smoke: true
-            custom_node_path: .node-runtime/node-v22.22.2-linux-x64-small-icu/bin/node
-            custom_node_platform: linux
-            custom_node_arch: x64
-          - runs-on: windows-latest-8-core-oss
-            target: node22.22.2-win-x64
+            custom_node_path: ''
+            custom_node_platform: ''
+            custom_node_arch: ''
+          - runs-on: windows-latest
+            target: node22-win-x64
             asset: vercel-windows-x64
             ext: '.exe'
             sign: false
             smoke: true
-            custom_node_path: .node-runtime/node-v22.22.2-win-x64-small-icu/node.exe
-            custom_node_platform: win
-            custom_node_arch: x64
+            custom_node_path: ''
+            custom_node_platform: ''
+            custom_node_arch: ''
     runs-on: ${{ matrix['runs-on'] }}
     env:
       HAS_APPLE_SIGNING_SECRETS: ${{ secrets.APPLE_CERT_DATA != '' && secrets.APPLE_CERT_PASSWORD != '' && secrets.APPLE_API_KEY != '' }}
