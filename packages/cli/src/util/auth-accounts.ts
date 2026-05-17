@@ -19,7 +19,9 @@ export function getMultiAccountAuthConfig(
   return authConfig as MultiAccountAuthConfig;
 }
 
-export function applyActiveAccount(authConfig: AuthConfig): AuthConfig {
+export function applyActiveAccount(
+  authConfig: MultiAccountAuthConfig
+): AuthConfig {
   const multiAuthConfig = getMultiAccountAuthConfig(authConfig);
   if (multiAuthConfig.tokenSource) {
     return authConfig;
