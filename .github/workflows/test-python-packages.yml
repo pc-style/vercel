@@ -4,14 +4,10 @@ on:
   pull_request:
     paths:
       - 'python/**'
-      - '!python/**/patches/**'
       - 'pyproject.toml'
       - 'uv.lock'
       - 'utils/get-python-packages.js'
       - '.github/workflows/test-python-packages.yml'
-  push:
-    tags:
-      - 'vercel@*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -26,9 +22,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Check out the PR commit directly instead of a merge commit. For
-          # release-tag runs, check out the CLI release tag that triggered CI.
-          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          # Check out the PR commit directly instead of a merge commit.
+          ref: ${{ github.event.pull_request.head.sha }}
       - id: discover
         run: |
           PACKAGES="$(node utils/get-python-packages.js)"
@@ -49,9 +44,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Check out the PR commit directly instead of a merge commit. For
-          # release-tag runs, check out the CLI release tag that triggered CI.
-          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          # Check out the PR commit directly instead of a merge commit.
+          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
