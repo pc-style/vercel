@@ -56,9 +56,9 @@ const linkSchema = {
   },
 };
 
-const DEFAULT_PROJECT_LINK_NAME = 'default';
+export const DEFAULT_PROJECT_LINK_NAME = 'default';
 
-type ProjectLinkFile = Partial<ProjectLink> & {
+export type ProjectLinkFile = Partial<ProjectLink> & {
   projects?: Record<string, ProjectLink>;
   settings?: unknown;
 };
@@ -77,19 +77,23 @@ function isProjectLink(value: unknown): value is ProjectLink {
   );
 }
 
+// Parses an unambiguous global flag used to select a named local project link
+// (e.g. `vc dev --project-link staging`). We deliberately do NOT parse
+// `--project` here because some commands (notably `vc link`) define
+// `--project` with a different meaning (Vercel project name or ID).
 function getProjectLinkNameFromArgs(argv: string[]): string | undefined {
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg === '--project') {
+    if (arg === '--project-link') {
       return argv[i + 1];
     }
-    if (arg.startsWith('--project=')) {
-      return arg.slice('--project='.length);
+    if (arg.startsWith('--project-link=')) {
+      return arg.slice('--project-link='.length);
     }
   }
 }
 
-function getProjectLinksFromFile(
+export function getProjectLinksFromFile(
   link: ProjectLinkFile
 ): Record<string, ProjectLink> {
   const projects = isRecord(link.projects) ? link.projects : undefined;
@@ -490,7 +494,9 @@ export async function writeReadme(path: string) {
   );
 }
 
-async function readProjectLinkFile(dir: string): Promise<ProjectLinkFile> {
+export async function readProjectLinkFile(
+  dir: string
+): Promise<ProjectLinkFile> {
   try {
     return JSON.parse(
       await readFile(join(dir, VERCEL_DIR_PROJECT), 'utf8')
@@ -512,11 +518,11 @@ async function readProjectLinkFile(dir: string): Promise<ProjectLinkFile> {
   }
 }
 
-async function writeProjectLinkFile(
+export async function writeProjectLinkFile(
   path: string,
   projectLink: ProjectLink,
   projectName: string,
-  projectLinkName: string
+  projectLinkName: string = DEFAULT_PROJECT_LINK_NAME
 ) {
   const dir = join(path, VERCEL_DIR);
   const existingLink = await readProjectLinkFile(dir);

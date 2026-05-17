@@ -9,10 +9,12 @@ import type {
   Team,
 } from '@vercel-internals/types';
 import {
+  DEFAULT_PROJECT_LINK_NAME,
   getLinkedProject,
   linkFolderToProject,
   getVercelDirectory,
   VERCEL_DIR_README,
+  writeProjectLinkFile,
 } from '../projects/link';
 import { linkRepoProject } from './repo';
 import createProject from '../projects/create-project';
@@ -243,6 +245,18 @@ async function linkCrossTeamMatch({
       remoteName: match.repo.remoteName,
       successEmoji,
     });
+    // Honor `--name` even for repo-root matches: `linkRepoProject` only writes
+    // `repo.json`. When the caller passed a non-default `projectLinkName`, also
+    // record the named entry in `.vercel/project.json` so `getProjectLink`
+    // (which is selected via `--project-link <name>`) can resolve it.
+    if (projectLinkName && projectLinkName !== DEFAULT_PROJECT_LINK_NAME) {
+      await writeProjectLinkFile(
+        path,
+        { projectId: match.project.id, orgId: match.org.id },
+        match.project.name,
+        projectLinkName
+      );
+    }
     await maybePullEnvAfterLink(client, path, autoConfirm, pullEnv);
     return {
       status: 'linked',
