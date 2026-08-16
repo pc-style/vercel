@@ -1,8 +1,8 @@
-> **Archived upstream fork/reference — do not use for new work.**  
+> **Archive pending — do not use this repository for new work.** This upstream fork/reference is scheduled for archive once repository administration permission is available.  
 > **Upstream:** [https://github.com/vercel/vercel](https://github.com/vercel/vercel)  
 > **License/provenance:** Preserved upstream history and existing license/provenance notices (Apache-2.0).  
 > **Current code, releases, issues, and security:** Use upstream.  
-> **Maintained pc-style delta:** None (apart from this archive notice).  
+> **Maintained pc-style delta:** None (apart from repository-status notices).  
 > **Historical unmaintained delta:** CLI multi-account/named-project-link changes and a patched binary release workflow. This delta is not synced or supported.
 
 <p align="center">
